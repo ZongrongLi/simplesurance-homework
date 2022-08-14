@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: counter-deployment
+    namespace: default
+spec:
+  replicas: 3            
+  selector:           
+    matchLabels:
+      app: counter
+  template:            
+    metadata:
+      labels:
+        app: counter
+    spec:
+      containers:
+      - name: counter
+        image: docker.io/tiancai110a/counter:v2.1.6
+        volumeMounts:
+          - mountPath: /data
+            name: data-volume
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+            initialDelaySeconds: 10
+            httpGet:
+                path: /healthz
+                port: 8080
+
+        readinessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 1
+            failureThreshold: 2
+            httpGet:
+                path: /
+                port: 8080
+
+
+      volumes:
+      - name: data-volume
+        hostPath:
+          # directory location on host
+          path: /data
+          # this field is optional
+          type: Directory
+
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: counter-service
+  namespace: default
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: counter
+
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: counter-service-ingress
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+spec:
+  tls:
+    - hosts:
+      - lizongrong.xyz
+      secretName: secret-tls
+
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: counter-service
+            port:
+              number: 80
+
